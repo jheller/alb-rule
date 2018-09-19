@@ -21,9 +21,9 @@ Parameters:
     Type: String
     Description: Subnet ID for Avaliability Zone C
 
-  CertificateId:
+  CertificateArn:
     Type: String
-    Description: ACM certificate ID for the HTTPS listener
+    Description: ARN of an ACM certificate for the HTTPS listener
 
   LambdaBucket:
     Type: String
@@ -122,7 +122,7 @@ Resources:
       Port: 443
       Protocol: HTTPS
       Certificates:
-        - CertificateArn: !Sub arn:aws:acm:${AWS::Region}:${AWS::AccountId}:certificate/${CertificateId}
+        - CertificateArn: !Ref CertificateArn
       SslPolicy: ELBSecurityPolicy-TLS-1-2-2017-01
 
   MyTargetGroup:
