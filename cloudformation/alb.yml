@@ -1,0 +1,183 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: |
+  Example snippet setting up and ALB
+  and adding redirect rules using a Lambda-backed Custom Resource
+
+Parameters:
+  VpcId:
+    Type: String
+    Description: VPC Id
+
+  PubSubnetA:
+    Type: String
+    Description: Subnet ID for Avaliability Zone A
+
+  PubSubnetB:
+    Type: String
+    Description: Subnet ID for Avaliability Zone B
+
+  PubSubnetB:
+    Type: String
+    Description: Subnet ID for Avaliability Zone C
+
+  CertificateId:
+    Type: String
+    Description: ACM certificate ID for the HTTPS listener
+
+  LambdaBucket:
+    Type: String
+    Description: Name of the S3 bucket containing the Lambda function zip file
+
+  CloudFrontDist:
+    Type: String
+    Description: A CloudFront distribution to redirect to
+
+Resources:
+  # An IAM role for the Lambda function
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: AddAlbRules
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                - elasticloadbalancing:CreateRule
+                - elasticloadbalancing:DescribeRules
+                - elasticloadbalancing:DeleteRule
+                Resource: '*'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+
+  AlbRuleLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Sets ALB listener rules, including type not yet available in CloudFormation
+      FunctionName: AlbListenerRule
+      Handler: alb_rule.lambda_handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python2.7
+      Timeout: '60'
+      Code:
+        S3Bucket: !Ref LambdaBucket
+        S3Key: AlbListenerRule.zip
+
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB Security Group
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: '443'
+          ToPort: '443'
+          CidrIp: 0.0.0.0/0
+
+  MyALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: MyALB
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Subnets:
+        - !Ref PubSubnetA
+        - !Ref PubSubnetB
+        - !Ref PubSubnetC
+
+  HTTPlistener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref MyTargetGroup
+      LoadBalancerArn: !Ref MyALB
+      Port: 80
+      Protocol: HTTP
+
+  HTTPSlistener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref MyTargetGroup
+      LoadBalancerArn: !Ref MyALB
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Sub arn:aws:acm:${AWS::Region}:${AWS::AccountId}:certificate/${CertificateId}
+      SslPolicy: ELBSecurityPolicy-TLS-1-2-2017-01
+
+  MyTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 80
+      Protocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: '/'
+      HealthCheckProtocol: 'HTTP'
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
+      TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: true
+        - Key: deregistration_delay.timeout_seconds
+          Value: '20'
+      VpcId: !Ref VpcId
+
+  ##############################################################################
+  ########################### ALB Redirect Rules ###############################
+  ##############################################################################
+
+  ####### Redirect to HTTPS on HTTP listener ###############
+  RedirectHttps:
+    Type: Custom::AlbListenerRule
+    Properties:
+      ServiceToken: !GetAtt AlbRuleLambda.Arn
+      Actions:
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: 443
+            StatusCode: HTTP_301
+      Conditions:
+        - Field: host-header
+          Values:
+            - "*.*"
+      ListenerArn: !Ref HTTPlistener
+      Priority: 10
+
+  ######## Redirect /images to Cloudfront on HTTPS listener ######
+  Redirectimages:
+    Type: Custom::AlbListenerRule
+    Properties:
+      ServiceToken: !GetAtt AlbRuleLambda.Arn
+      Actions:
+        - Type: redirect
+          RedirectConfig:
+            Host: !Sub ${CloudFrontDist}.cloudfront.net
+            StatusCode: HTTP_301
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - "/images/*"
+      ListenerArn: !Ref HTTPSlistener
+      Priority: 10
