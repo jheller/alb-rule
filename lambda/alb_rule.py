@@ -58,7 +58,7 @@ def lambda_handler(event, context):
     _sendResponse(event, context, responseStatus, responseData)
 
 def _create_rule(alb, ListenerArn, Conditions, Priority, Actions):
-    print('_create_rule' + ListenerArn)
+    print('_create_rule ' + ListenerArn)
     response = alb.create_rule(
         ListenerArn=ListenerArn,
         Conditions=Conditions,

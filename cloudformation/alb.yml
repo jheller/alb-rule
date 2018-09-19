@@ -17,7 +17,7 @@ Parameters:
     Type: String
     Description: Subnet ID for Avaliability Zone B
 
-  PubSubnetB:
+  PubSubnetC:
     Type: String
     Description: Subnet ID for Avaliability Zone C
 
