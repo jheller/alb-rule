@@ -130,18 +130,18 @@ Resources:
     Properties:
       Port: 80
       Protocol: HTTP
-      HealthCheckIntervalSeconds: 30
-      HealthCheckPath: '/'
-      HealthCheckProtocol: 'HTTP'
-      HealthCheckTimeoutSeconds: 10
-      HealthyThresholdCount: 3
-      UnhealthyThresholdCount: 3
-      TargetGroupAttributes:
-        - Key: stickiness.enabled
-          Value: true
-        - Key: deregistration_delay.timeout_seconds
-          Value: '20'
       VpcId: !Ref VpcId
+      # HealthCheckIntervalSeconds: 30
+      # HealthCheckPath: '/'
+      # HealthCheckProtocol: 'HTTP'
+      # HealthCheckTimeoutSeconds: 10
+      # HealthyThresholdCount: 3
+      # UnhealthyThresholdCount: 3
+      # TargetGroupAttributes:
+      #   - Key: stickiness.enabled
+      #     Value: true
+      #   - Key: deregistration_delay.timeout_seconds
+      #     Value: '20'
 
   ##############################################################################
   ########################### ALB Redirect Rules ###############################
@@ -152,16 +152,16 @@ Resources:
     Type: Custom::AlbListenerRule
     Properties:
       ServiceToken: !GetAtt AlbRuleLambda.Arn
+      Conditions:
+        - Field: host-header
+          Values:
+            - "*.*"
       Actions:
         - Type: redirect
           RedirectConfig:
             Protocol: HTTPS
             Port: 443
             StatusCode: HTTP_301
-      Conditions:
-        - Field: host-header
-          Values:
-            - "*.*"
       ListenerArn: !Ref HTTPlistener
       Priority: 10
 
@@ -170,14 +170,14 @@ Resources:
     Type: Custom::AlbListenerRule
     Properties:
       ServiceToken: !GetAtt AlbRuleLambda.Arn
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - "/images/*"
       Actions:
         - Type: redirect
           RedirectConfig:
             Host: !Sub ${CloudFrontDist}.cloudfront.net
             StatusCode: HTTP_301
-      Conditions:
-        - Field: path-pattern
-          Values:
-            - "/images/*"
       ListenerArn: !Ref HTTPSlistener
       Priority: 10

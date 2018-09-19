@@ -1,4 +1,3 @@
-import botocore
 import boto3
 from botocore.exceptions import ClientError, ParamValidationError
 import sys
@@ -20,8 +19,7 @@ def lambda_handler(event, context):
     Priority = int(event['ResourceProperties']['Priority'])
 
     try:
-        session = botocore.session.get_session()
-        alb = session.create_client('elbv2', region_name=region)
+        alb = boto3.client('elbv2')
 
         if event_type == 'Create':
             _create_rule(alb, ListenerArn, Conditions, Priority, Actions)
@@ -37,6 +35,7 @@ def lambda_handler(event, context):
             _create_rule(alb, ListenerArn, Conditions, Priority, Actions)
             responseStatus = 'SUCCESS'
 
+    # Exception handling is here mostly to aid debugging
     except ClientError as e:
         print "Boto ClientError: %s" % e
         responseStatus = 'FAILED'
