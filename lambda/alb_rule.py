@@ -6,19 +6,19 @@ import urllib2
 import json
 
 def lambda_handler(event, context):
-    print("Lambda Event: " + json.dumps(event))
-
-    responseData = {}
-
-    region = os.environ['AWS_REGION']
-    event_type = event['RequestType']
-
-    ListenerArn = event['ResourceProperties']['ListenerArn']
-    Conditions = event['ResourceProperties']['Conditions']
-    Actions = event['ResourceProperties']['Actions']
-    Priority = int(event['ResourceProperties']['Priority'])
-
     try:
+        print("Lambda Event: " + json.dumps(event))
+
+        responseData = {}
+
+        region = os.environ['AWS_REGION']
+        event_type = event['RequestType']
+
+        ListenerArn = event['ResourceProperties']['ListenerArn']
+        Conditions = event['ResourceProperties']['Conditions']
+        Actions = event['ResourceProperties']['Actions']
+        Priority = int(event['ResourceProperties']['Priority'])
+
         alb = boto3.client('elbv2')
 
         if event_type == 'Create':
@@ -35,7 +35,6 @@ def lambda_handler(event, context):
             _create_rule(alb, ListenerArn, Conditions, Priority, Actions)
             responseStatus = 'SUCCESS'
 
-    # Exception handling is here mostly to aid debugging
     except ClientError as e:
         print "Boto ClientError: %s" % e
         responseStatus = 'FAILED'
