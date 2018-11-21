@@ -6,6 +6,8 @@ had not yet made them available in CloudFormation. The boto3 Python library does
 
 Here is a how to create a Lambda-backed CloudFormation custom resource that can be used to implement redirect rules.
 
+Update: CloudFormation now supports ALB Listener Rules, so this is no longer necessary
+
 ## Lambda Function
 This is a Python 2.7 function. All Python libraries it uses are available in the standard Lambda environment.
 
